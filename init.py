@@ -1,7 +1,9 @@
+import os
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
-from aiogram.types import ParseMode
+from aiogram.types import ParseMode, Message
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
@@ -9,6 +11,7 @@ from db import start_db, add_user, check_user, del_user, get_user
 
 import logging
 import config
+from downloader import upload_to_telegraph
 
 logging.basicConfig(level=logging.INFO)
 
@@ -84,6 +87,24 @@ async def get_me(message: types.Message):
 		await message.answer(f"Ваши данные:\n\n{user_info}", parse_mode=ParseMode.MARKDOWN)
 	else:
 		await message.answer("Вы еще не зарегистрированы.")
+
+
+@dp.message_handler(content_types=['photo', 'video', 'document'])
+async def handle_media(message: Message):
+	file_id = message.photo[-1].file_id or message.video.file_id or message.document.file_id
+	file = await bot.get_file(file_id)
+
+	file_path = os.path.join("downloads", file.file_path)
+	await bot.download_file_by_id(file_id, file_path)
+
+	telegraph_url = upload_to_telegraph(file_path)
+
+	if telegraph_url:
+		await message.reply(f"Ваша ссылка: {telegraph_url}")
+	else:
+		await message.reply("Ошибка при загрузке файла.")
+
+	os.remove(file_path)
 
 
 if __name__ == '__main__':
