@@ -1,5 +1,3 @@
-import os
-
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
@@ -11,7 +9,7 @@ from db import start_db, add_user, check_user, del_user, get_user
 
 import logging
 import config
-from downloader import upload_to_telegraph
+from downloader import telegraph_upload
 
 logging.basicConfig(level=logging.INFO)
 
@@ -90,21 +88,13 @@ async def get_me(message: types.Message):
 
 
 @dp.message_handler(content_types=['photo', 'video', 'document'])
-async def handle_media(message: Message):
-	file_id = message.photo[-1].file_id or message.video.file_id or message.document.file_id
-	file = await bot.get_file(file_id)
-
-	file_path = os.path.join("downloads", file.file_path)
-	await bot.download_file_by_id(file_id, file_path)
-
-	telegraph_url = upload_to_telegraph(file_path)
+async def handle_media(message: types.Message):
+	telegraph_url = await telegraph_upload(bot, message)
 
 	if telegraph_url:
-		await message.reply(f"Ваша ссылка: {telegraph_url}")
+		await message.reply(f"Ссылка на ваш файл: {telegraph_url}")
 	else:
-		await message.reply("Ошибка при загрузке файла.")
-
-	os.remove(file_path)
+		await message.reply(telegraph_url )
 
 
 if __name__ == '__main__':
